@@ -1,0 +1,61 @@
+name: 'PR Digest'
+description: 'Generates a weekly digest of merged PRs with AI-summarized changelogs for your team'
+author: 'pr-digest'
+
+branding:
+  icon: 'book-open'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for accessing the repository and PR data'
+    required: true
+    default: ${{ github.token }}
+
+  openai-api-key:
+    description: 'OpenAI API key for generating AI-powered summaries'
+    required: true
+
+  lookback-days:
+    description: 'Number of days to look back for merged PRs'
+    required: false
+    default: '7'
+
+  output-format:
+    description: 'Output format for the digest: markdown, slack, or json'
+    required: false
+    default: 'markdown'
+
+  slack-webhook-url:
+    description: 'Slack webhook URL for posting the digest (required if output-format is slack)'
+    required: false
+    default: ''
+
+  base-branch:
+    description: 'Base branch to filter merged PRs against'
+    required: false
+    default: 'main'
+
+  max-prs:
+    description: 'Maximum number of PRs to include in the digest'
+    required: false
+    default: '50'
+
+  openai-model:
+    description: 'OpenAI model to use for summarization'
+    required: false
+    default: 'gpt-4o-mini'
+
+outputs:
+  digest:
+    description: 'The generated PR digest content'
+
+  pr-count:
+    description: 'Number of PRs included in the digest'
+
+  digest-file:
+    description: 'Path to the generated digest file (if saved to disk)'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
