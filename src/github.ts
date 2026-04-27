@@ -1,105 +1,104 @@
-import * as github from '@actions/github';
 import * as core from '@actions/core';
+import { Octokit } from '@octokit/rest';
 
 export interface PullRequest {
   number: number;
   title: string;
-  body: string | null;
   url: string;
-  author: string;
+  author: string | null;
   mergedAt: string;
+  body: string | null;
   labels: string[];
-  additions: number;
-  deletions: number;
-  changedFiles: number;
 }
 
-/**
- * Fetches merged pull requests from the repository within the given date range.
- *
- * @param token - GitHub token for authentication
- * @param owner - Repository owner (org or user)
- * @param repo - Repository name
- * @param since - ISO 8601 date string for the start of the range
- * @param until - ISO 8601 date string for the end of the range
- * @returns Array of merged pull requests
- */
-export async function getMergedPullRequests(
-  token: string,
+export function getLastWeekRange(): { start: Date; end: Date } {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 7);
+  start.setHours(0, 0, 0, 0);
+  return { start, end };
+}
+
+export async function fetchMergedPRs(
+  octokit: Octokit,
   owner: string,
   repo: string,
-  since: string,
-  until: string
+  since: Date,
+  until: Date
 ): Promise<PullRequest[]> {
-  const octokit = github.getOctokit(token);
-  const pullRequests: PullRequest[] = [];
+  const prs: PullRequest[] = [];
+  let page = 1;
 
-  core.info(`Fetching merged PRs for ${owner}/${repo} from ${since} to ${until}`);
-
-  try {
-    // Use paginated search to find merged PRs in the date range
-    const iterator = octokit.paginate.iterator(octokit.rest.pulls.list, {
+  while (true) {
+    const { data } = await octokit.pulls.list({
       owner,
       repo,
       state: 'closed',
       sort: 'updated',
       direction: 'desc',
       per_page: 100,
+      page,
     });
 
-    for await (const { data: prs } of iterator) {
-      let reachedBefore = false;
+    if (data.length === 0) break;
 
-      for (const pr of prs) {
-        if (!pr.merged_at) continue;
+    let reachedBefore = false;
 
-        const mergedAt = new Date(pr.merged_at);
-        const sinceDate = new Date(since);
-        const untilDate = new Date(until);
+    for (const pr of data) {
+      if (!pr.merged_at) continue;
 
-        // Stop paginating if we've gone past our range
-        if (mergedAt < sinceDate) {
-          reachedBefore = true;
-          break;
-        }
+      const mergedAt = new Date(pr.merged_at);
 
-        if (mergedAt >= sinceDate && mergedAt <= untilDate) {
-          pullRequests.push({
-            number: pr.number,
-            title: pr.title,
-            body: pr.body ?? null,
-            url: pr.html_url,
-            author: pr.user?.login ?? 'unknown',
-            mergedAt: pr.merged_at,
-            labels: pr.labels.map((l) => l.name ?? '').filter(Boolean),
-            additions: pr.additions ?? 0,
-            deletions: pr.deletions ?? 0,
-            changedFiles: pr.changed_files ?? 0,
-          });
-        }
+      if (mergedAt < since) {
+        reachedBefore = true;
+        break;
       }
 
-      if (reachedBefore) break;
+      if (mergedAt > until) continue;
+
+      prs.push({
+        number: pr.number,
+        title: pr.title,
+        url: pr.html_url,
+        author: pr.user?.login ?? null,
+        mergedAt: pr.merged_at,
+        body: pr.body ?? null,
+        labels: pr.labels.map((l) => (typeof l === 'string' ? l : l.name ?? '')),
+      });
     }
-  } catch (error) {
-    core.error(`Failed to fetch pull requests: ${error}`);
-    throw error;
+
+    if (reachedBefore) break;
+    page++;
   }
 
-  core.info(`Found ${pullRequests.length} merged PR(s) in the specified range.`);
-  return pullRequests;
+  core.info(`Fetched ${prs.length} merged PRs from ${owner}/${repo}`);
+  return prs;
 }
 
-/**
- * Returns the default date range for the past week.
- */
-export function getLastWeekRange(): { since: string; until: string } {
-  const until = new Date();
-  const since = new Date();
-  since.setDate(until.getDate() - 7);
+export function groupPRsByLabel(
+  prs: PullRequest[],
+  labelGroups: Record<string, string[]>
+): Record<string, PullRequest[]> {
+  const result: Record<string, PullRequest[]> = {};
 
-  return {
-    since: since.toISOString(),
-    until: until.toISOString(),
-  };
+  for (const [groupName] of Object.entries(labelGroups)) {
+    result[groupName] = [];
+  }
+  result['other'] = [];
+
+  for (const pr of prs) {
+    let matched = false;
+    for (const [groupName, labels] of Object.entries(labelGroups)) {
+      if (pr.labels.some((l) => labels.includes(l))) {
+        result[groupName].push(pr);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      result['other'].push(pr);
+    }
+  }
+
+  return result;
 }
