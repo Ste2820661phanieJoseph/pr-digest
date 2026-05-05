@@ -43,3 +43,18 @@ export function validateLabelOrder(order: string[]): boolean {
   }
   return valid;
 }
+
+/**
+ * Checks whether a given label is considered allowed based on the config.
+ * If `allowedLabels` is empty, all labels are treated as allowed.
+ * The `fallbackLabel` is always considered allowed.
+ */
+export function isLabelAllowed(label: string, config: LabelConfig): boolean {
+  if (label === config.fallbackLabel) {
+    return true;
+  }
+  if (config.allowedLabels.length === 0) {
+    return true;
+  }
+  return config.allowedLabels.includes(label);
+}
