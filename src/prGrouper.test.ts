@@ -51,6 +51,15 @@ describe("groupAndSort", () => {
     const result = groupAndSort({}, labelOrder, { defaultSort: { field: "merged_at", order: "desc" } });
     expect(result).toEqual([]);
   });
+
+  it("preserves label order even when input groups are in a different order", () => {
+    const unorderedGroups: Record<string, SortablePR[]> = {
+      bugfix: [makePR({ number: 4 })],
+      feature: [makePR({ number: 1 }), makePR({ number: 2 })],
+    };
+    const result = groupAndSort(unorderedGroups, labelOrder, { defaultSort: { field: "merged_at", order: "desc" } });
+    expect(result.map((g) => g.label)).toEqual(["feature", "bugfix"]);
+  });
 });
 
 describe("flattenGroups", () => {
@@ -60,6 +69,10 @@ describe("flattenGroups", () => {
       { label: "bugfix", prs: [makePR({ number: 3 })] },
     ];
     expect(flattenGroups(grouped).map((p) => p.number)).toEqual([1, 2, 3]);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(flattenGroups([])).toEqual([]);
   });
 });
 
