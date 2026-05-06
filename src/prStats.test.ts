@@ -67,6 +67,12 @@ describe("computePRStats", () => {
     expect(stats.dateRange?.earliest).toBe("2024-01-10T00:00:00Z");
     expect(stats.dateRange?.latest).toBe("2024-01-20T00:00:00Z");
   });
+
+  it("handles PRs with no labels", () => {
+    const prs = [makePR({ labels: [] }), makePR({ labels: [] })];
+    const stats = computePRStats(prs);
+    expect(stats.byLabel).toEqual({});
+  });
 });
 
 describe("topContributors", () => {
@@ -82,6 +88,15 @@ describe("topContributors", () => {
     const top = topContributors(stats, 2);
     expect(top[0].login).toBe("carol");
     expect(top[0].count).toBe(3);
+    expect(top).toHaveLength(2);
+  });
+
+  it("returns all contributors when N exceeds contributor count", () => {
+    const stats = computePRStats([
+      makePR({ user: { login: "alice" } }),
+      makePR({ user: { login: "bob" } }),
+    ]);
+    const top = topContributors(stats, 10);
     expect(top).toHaveLength(2);
   });
 });
