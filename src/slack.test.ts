@@ -40,6 +40,12 @@ describe('buildSlackPayload', () => {
     const payload = buildSlackPayload('test');
     expect(payload.blocks!.length).toBe(1);
   });
+
+  it('preserves special characters in content', () => {
+    const content = 'PR <https://github.com/org/repo/pull/42|#42>: Fix &amp; improve things';
+    const payload = buildSlackPayload(content);
+    expect(payload.blocks![0].text?.text).toBe(content);
+  });
 });
 
 describe('postToSlack', () => {
