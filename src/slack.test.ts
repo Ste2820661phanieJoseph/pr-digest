@@ -35,6 +35,11 @@ describe('buildSlackPayload', () => {
     const payload = buildSlackPayload('test');
     expect(Array.isArray(payload.blocks)).toBe(true);
   });
+
+  it('returns exactly one block', () => {
+    const payload = buildSlackPayload('test');
+    expect(payload.blocks!.length).toBe(1);
+  });
 });
 
 describe('postToSlack', () => {
@@ -42,6 +47,13 @@ describe('postToSlack', () => {
     const { postToSlack } = await import('./slack');
     await expect(
       postToSlack('not-a-valid-url', { text: 'test' })
+    ).rejects.toThrow();
+  });
+
+  it('throws when webhook URL is empty', async () => {
+    const { postToSlack } = await import('./slack');
+    await expect(
+      postToSlack('', { text: 'test' })
     ).rejects.toThrow();
   });
 });
